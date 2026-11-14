@@ -259,6 +259,20 @@ static void TestGuestAllocators() {
     Require(tracker.live.empty());
 }
 
+static void TestCurlQuirks() {
+    char buffer[64];
+    Require(curl_msnprintf_nid_postfix(buffer, sizeof(buffer), "%06.3d", 7) == 6);
+    Require(Equals(buffer, "000007"));
+    Require(curl_msnprintf_nid_postfix(buffer, sizeof(buffer), "%#x|%#.0x|%.0d", 0, 0, 0) == 7);
+    Require(Equals(buffer, "0x0|0x|"));
+    Require(curl_msnprintf_nid_postfix(buffer, sizeof(buffer), "%1$*2$d", 9, 5) == 9);
+    Require(Equals(buffer, "        5"));
+    Require(curl_msnprintf_nid_postfix(buffer, sizeof(buffer), "%o", -1) == 22);
+    Require(Equals(buffer, "1777777777777777777777"));
+    Require(curl_msnprintf_nid_postfix(buffer, sizeof(buffer), "%129$d", 5) == 1);
+    Require(Equals(buffer, "d"));
+}
+
 static void TestNonFinite() {
     const double infinity = std::numeric_limits<double>::infinity();
     const double notNumber = std::numeric_limits<double>::quiet_NaN();
@@ -284,6 +298,7 @@ int main() {
     TestLists();
     TestUnboundedAndAllocated();
     TestGuestAllocators();
+    TestCurlQuirks();
     TestNonFinite();
     return 0;
 }
