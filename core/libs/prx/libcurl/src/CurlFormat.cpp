@@ -42,6 +42,7 @@
 #include "prx/libc/include/WindowsFormatting.hpp"
 
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -688,7 +689,7 @@ private:
             std::size_t maxPrecision = WorkSize - 2;
             double magnitude = value;
             if (width > 0 && precision <= width) maxPrecision -= static_cast<std::size_t>(width);
-            while (magnitude >= 10.0) {
+            while (maxPrecision && std::isfinite(magnitude) && magnitude >= 10.0) {
                 magnitude /= 10;
                 --maxPrecision;
             }

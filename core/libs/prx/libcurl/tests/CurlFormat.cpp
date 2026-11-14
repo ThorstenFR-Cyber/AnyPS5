@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <map>
 #include <string>
 #include <vector>
@@ -258,6 +259,20 @@ static void TestGuestAllocators() {
     Require(tracker.live.empty());
 }
 
+static void TestNonFinite() {
+    const double infinity = std::numeric_limits<double>::infinity();
+    const double notNumber = std::numeric_limits<double>::quiet_NaN();
+    char buffer[512];
+    Require(curl_msnprintf_nid_postfix(buffer, sizeof(buffer), "%f|%.2f|%.2f|%.2f", infinity, infinity, -infinity, notNumber) == 16);
+    Require(Equals(buffer, "inf|inf|-inf|nan"));
+    Require(curl_msnprintf_nid_postfix(buffer, sizeof(buffer), "%8.2f|%-8.2f|%+.1e|%.3G|%8f", infinity, infinity, infinity, infinity, -infinity) == 35);
+    Require(Equals(buffer, "     inf|inf     |+inf|INF|    -inf"));
+    Require(curl_msnprintf_nid_postfix(buffer, sizeof(buffer), "%10.3f|%-6.1g|%.0e", notNumber, notNumber, -infinity) == 22);
+    Require(Equals(buffer, "       nan|nan   |-inf"));
+    Require(curl_msnprintf_nid_postfix(buffer, sizeof(buffer), "%400.2f", infinity) == 325);
+    Require(std::strlen(buffer) == 325 && std::strcmp(buffer + 322, "inf") == 0 && buffer[0] == ' ');
+}
+
 int main() {
     ApplicationHeapInitialize_nid_no_patch(ApplicationEmptyProcessParameters_nid_no_patch());
     TestIntegers();
@@ -269,5 +284,6 @@ int main() {
     TestLists();
     TestUnboundedAndAllocated();
     TestGuestAllocators();
+    TestNonFinite();
     return 0;
 }
