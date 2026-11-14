@@ -100,6 +100,7 @@ struct Parameter {
     std::int64_t width = 0;
     std::int64_t precision = 0;
     std::uint64_t data = 0;
+    bool unread = false;
 };
 
 class IOutput {
@@ -469,6 +470,7 @@ private:
             entry.flags = flags;
             entry.width = width;
             entry.precision = precision;
+            entry.unread = false;
             if (flags & FlagWidthParam) {
                 const std::int64_t k = width - 1;
                 if (k < 0 || k >= MaxParameters) return false;
@@ -487,8 +489,8 @@ private:
         for (std::int64_t i = 0; i < maxParam; ++i) {
             Parameter& entry = parameters[static_cast<std::size_t>(i)];
             if (entry.type == ArgumentType::Unset) throw std::invalid_argument("curl format leaves an argument position unused");
-            if (entry.flags & FlagWidthParam) parameters[static_cast<std::size_t>(entry.width)].data = static_cast<std::uint64_t>(static_cast<std::int64_t>(arguments.Next<std::int32_t>()));
-            if (entry.flags & FlagPrecisionParam) parameters[static_cast<std::size_t>(entry.precision)].data = static_cast<std::uint64_t>(static_cast<std::int64_t>(arguments.Next<std::int32_t>()));
+            if (entry.flags & FlagWidthParam) readWidth(parameters[static_cast<std::size_t>(entry.width)]);
+            if (entry.flags & FlagPrecisionParam) readWidth(parameters[static_cast<std::size_t>(entry.precision)]);
             switch (entry.type) {
             case ArgumentType::String:
             case ArgumentType::IntegerPointer:
@@ -513,7 +515,14 @@ private:
                 break;
             }
         }
+        for (const Parameter& parameter : parameters)
+            if (parameter.unread) throw std::invalid_argument("curl format uses a width or precision argument it never reads");
         return true;
+    }
+
+    void readWidth(Parameter& parameter) {
+        parameter.data = static_cast<std::uint64_t>(static_cast<std::int64_t>(arguments.Next<std::int32_t>()));
+        parameter.unread = false;
     }
 
     static void markWidth(Parameter& parameter) {
@@ -521,6 +530,7 @@ private:
         parameter.flags = 0;
         parameter.width = 0;
         parameter.precision = 0;
+        parameter.unread = true;
     }
 
     bool convert(Parameter& p, std::int64_t width, std::int64_t precision) {

@@ -7,6 +7,7 @@
 #include <cstring>
 #include <limits>
 #include <map>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -273,6 +274,27 @@ static void TestCurlQuirks() {
     Require(Equals(buffer, "d"));
 }
 
+static bool ThrowsInvalidArgument(const char* format, int first, int second, int third) {
+    char buffer[64];
+    try {
+        curl_msnprintf_nid_postfix(buffer, sizeof(buffer), format, first, second, third);
+    } catch (const std::invalid_argument&) {
+        return true;
+    }
+    return false;
+}
+
+static void TestUnreadArguments() {
+    Require(ThrowsInvalidArgument("%3$d %1$d", 1, 2, 3));
+    Require(ThrowsInvalidArgument("%2$d", 1, 2, 3));
+    Require(ThrowsInvalidArgument("%*1$d", 7, 8, 9));
+    Require(ThrowsInvalidArgument("%1$*1$d", 7, 8, 9));
+    Require(ThrowsInvalidArgument("%1$*2$d %*1$d", 7, 8, 9));
+    char buffer[64];
+    Require(curl_msnprintf_nid_postfix(buffer, sizeof(buffer), "%1$*2$d %2$d", 9, 5, 3) == 5);
+    Require(Equals(buffer, "  5 3"));
+}
+
 static void TestNonFinite() {
     const double infinity = std::numeric_limits<double>::infinity();
     const double notNumber = std::numeric_limits<double>::quiet_NaN();
@@ -300,5 +322,6 @@ int main() {
     TestGuestAllocators();
     TestCurlQuirks();
     TestNonFinite();
+    TestUnreadArguments();
     return 0;
 }
